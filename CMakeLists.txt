@@ -17,7 +17,7 @@ option(LTO_OPTIMAZITION "Enable LTO optimization" OFF)
 # ------------------------------------------------------------------------------
 # Target
 
-add_avr_executable(${PROJECT_NAME} atmega328p)
+add_avr_executable(${PROJECT_NAME} atmega328p 16000000 9600)
 target_include_directories(${PROJECT_NAME}
                            PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 

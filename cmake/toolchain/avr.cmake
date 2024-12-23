@@ -19,7 +19,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
 # ------------------------------------------------------------------------------
-macro(add_avr_executable target_name avr_mcu)
+macro(add_avr_executable target_name avr_mcu f_cpu baud)
     set(elf_file ${target_name}-${avr_mcu}.elf)
     set(map_file ${target_name}-${avr_mcu}.map)
     set(hex_file ${target_name}-${avr_mcu}.hex)
@@ -28,7 +28,7 @@ macro(add_avr_executable target_name avr_mcu)
 
     add_executable(${target_name} ${ARGN})
 
-    target_compile_definitions(${target_name} PRIVATE F_CPU=${F_CPU} BAUD=${BAUD})
+    target_compile_definitions(${target_name} PRIVATE F_CPU=${f_cpu} BAUD=${baud})
 
     target_compile_options(${target_name} PRIVATE
         -mmcu=${avr_mcu}
@@ -82,7 +82,7 @@ macro(add_avr_executable target_name avr_mcu)
 
     add_custom_command(TARGET ${target_name} POST_BUILD
         COMMAND ${AVR_STRIP} -o ${strip_elf_file} ${elf_file}
-        COMMAND ${AVR_SIZE_TOOL} ${elf_file}
+        COMMAND ${AVR_SIZE_TOOL} ${strip_elf_file}
     )
 
 
