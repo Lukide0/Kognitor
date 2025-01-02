@@ -8,6 +8,10 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
   )
 endif()
 
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Debug")
+endif()
+
 # -----------------------------------------------------------------------------
 # Set policy
 cmake_policy(SET CMP0076 NEW)

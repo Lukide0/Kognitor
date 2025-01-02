@@ -27,6 +27,11 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     $<$<BOOL:${LTO_OPTIMAZITION}>:INTERPROCEDURAL_OPTIMIZATION TRUE>
 )
 
+string(TOUPPER "${CMAKE_BUILD_TYPE}" build_type)
+if(build_type STREQUAL "DEBUG")
+    target_compile_options(${PROJECT_NAME} PRIVATE -fconcepts-diagnostics-depth=2)
+endif()
+
 # ------------------------------------------------------------------------------
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src")
 
