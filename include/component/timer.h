@@ -70,12 +70,12 @@ template <timer_info Info> struct NormalTimer {
     static void enable_interrupt() {
         using namespace io;
 
-        *Info::TIMSKn::get_ptr() |= OCIE0A::bit;
+        Info::TIMSKn::template set_bits<OCIE0A>();
     }
 
     static void disable_interrupt() {
         using namespace io;
-        *Info::TIMSKn::get_ptr() &= ~OCIE0A::bit;
+        Info::TIMSKn::template unset_bits<OCIE0A>();
     }
 
     static void stop() { *Info::TCCRnB::get_ptr() &= ~prescale_bits_mask; }

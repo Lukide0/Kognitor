@@ -60,9 +60,35 @@ template <uint32_t Addr, bool Read, bool Write, typename Data = uint8_t, is_regb
 
     template <is_regbit... Bs>
     static void write()
-        requires(sizeof...(Bs) > 0 && contains<Bs...>() && (Bs::write && ...))
+        requires(Write && sizeof...(Bs) > 0 && contains<Bs...>() && (Bs::write && ...))
     {
         *get_ptr() = (Bs::bit | ...);
+    }
+
+    static void set_bits(data_t data)
+        requires(Write)
+    {
+        *get_ptr() |= data;
+    }
+
+    template <is_regbit... Bs>
+    static void set_bits()
+        requires(Write && sizeof...(Bs) > 0 && contains<Bs...>() && (Bs::write && ...))
+    {
+        *get_ptr() |= (Bs::bit | ...);
+    }
+
+    static void unset_bits(data_t data)
+        requires(Write)
+    {
+        *get_ptr() &= ~data;
+    }
+
+    template <is_regbit... Bs>
+    static void unset_bits()
+        requires(Write && sizeof...(Bs) > 0 && contains<Bs...>() && (Bs::write && ...))
+    {
+        *get_ptr() &= ~(Bs::bit | ...);
     }
 
     static volatile data_t* get_ptr() { return reinterpret_cast<volatile data_t*>(reg); }
@@ -88,6 +114,8 @@ concept is_write_reg = requires(T::data_t data) {
     requires is_reg<T>;
 
     { T::write(data) } -> same_as<void>;
+    { T::set_bits(data) } -> same_as<void>;
+    { T::unset_bits(data) } -> same_as<void>;
 };
 
 template <typename T>

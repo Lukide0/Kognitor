@@ -116,7 +116,7 @@ public:
     }
 
     static uint16_t read() {
-        *ADCSRA::get_ptr() |= ADSC::bit;
+        ADCSRA::template set_bits<ADSC>();
 
         while ((ADCSRA::read() & ADSC::bit) != 0) { }
 
@@ -126,7 +126,7 @@ public:
         return 1023 - value;
     }
 
-    static void read_int() { *ADCSRA::get_ptr() |= ADSC::bit; }
+    static void read_int() { ADCSRA::template set_bits<ADSC>(); }
 
     template <
         ADCReference Ref       = ADCReference::AREF,
@@ -136,7 +136,7 @@ public:
         constexpr uint8_t prescaler_value = get_prescaler(Prescaler);
         constexpr uint8_t reference_value = get_reference(Ref);
 
-        *PRR::get_ptr() &= ~PRADC::bit;
+        PRR::template unset_bits<PRADC>();
 
         if constexpr (LeftAdjustResult) {
             ADMUX::write(reference_value | ADLAR::bit);
@@ -147,11 +147,11 @@ public:
         ADCSRA::write(prescaler_value | ADEN::bit);
     }
 
-    static void disable() { *ADCSRA::get_ptr() &= ~ADEN::bit; }
+    static void disable() { ADCSRA::template unset_bits<ADEN>(); }
 
-    static void enable_interrupt() { *ADCSRA::get_ptr() |= ADIE::bit; }
+    static void enable_interrupt() { ADCSRA::template set_bits<ADIE>(); }
 
-    static void disable_interrupt() { *ADCSRA::get_ptr() &= ~ADIE::bit; }
+    static void disable_interrupt() { ADCSRA::template unset_bits<ADIE>(); }
 };
 
 }
