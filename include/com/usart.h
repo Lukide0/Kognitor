@@ -84,6 +84,28 @@ void send(const char* msg) {
     }
 }
 
+void send_hex(uint8_t number) {
+    uint8_t top    = (number >> 4) & 0xF;
+    uint8_t bottom = number & 0xF;
+
+    usart::send("0x");
+
+    if (top >= 10) {
+        top = (top - 10) + 'A';
+    } else {
+        top += '0';
+    }
+
+    if (bottom >= 10) {
+        bottom = (bottom - 10) + 'A';
+    } else {
+        bottom += '0';
+    }
+
+    usart::send(top);
+    usart::send(bottom);
+}
+
 }
 
 #endif
