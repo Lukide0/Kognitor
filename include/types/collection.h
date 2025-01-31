@@ -26,35 +26,59 @@ namespace __detail {
     template <typename T, unsigned int I, typename... Types> struct tuple_contains<T, TupleImpl<I, Types...>> {
         static constexpr bool value = (are_same_v<T, Types> || ...);
     };
+
+    template <unsigned int I, typename... Types> struct TupleElementImpl;
+
+    template <typename T, typename... Tail> struct TupleElementImpl<0, T, Tail...> {
+        using type = T;
+    };
+
+    template <unsigned int I, typename T, typename... Tail> struct TupleElementImpl<I, T, Tail...> {
+        using type = typename TupleElementImpl<I - 1, Tail...>::type;
+    };
+
+    template <unsigned int I, typename T> struct TupleElement;
+
+    template <unsigned int I, typename... Types> struct TupleElement<I, TupleImpl<0, Types...>> {
+        using type = TupleElementImpl<I, Types...>::type;
+    };
+
 }
 
 template <typename... Types> using tuple = __detail::TupleImpl<0, Types...>;
 
-template <unsigned int I, typename T, typename... Tail>
-decltype(auto) tuple_get(__detail::TupleImpl<I, T, Tail...>& tuple) {
+template <unsigned int I, typename T, typename... Tail> auto& tuple_get(__detail::TupleImpl<I, T, Tail...>& tuple) {
     return tuple.__detail::template Leaf<I, T>::value;
 }
 
-template <typename T, typename Tuple> using tuple_contains            = __detail::tuple_contains<T, Tuple>;
-template <typename T, typename Tuple> constexpr bool tuple_contains_v = tuple_contains<T, Tuple>::value;
+template <unsigned int I, typename T, typename... Tail> const auto& tuple_get(const __detail::TupleImpl<I, T, Tail...>& tuple) {
+    return tuple.__detail::template Leaf<I, T>::value;
+}
 
-template <typename T, uint8_t Size> struct array {
+template <unsigned int I, typename Tuple> using tuple_element_t = __detail::TupleElement<I, Tuple>::type;
+
+template <typename T, typename Tuple> using tuple_contains                   = __detail::tuple_contains<T, Tuple>;
+template <typename T, typename Tuple> inline constexpr bool tuple_contains_v = tuple_contains<T, Tuple>::value;
+
+template <typename T, uint16_t Size> struct array {
+    using index_t = conditional_t<(Size < 256), uint8_t, uint16_t>;
+
     array() = default;
 
     constexpr array(T data[Size])
         : m_data(data) { }
 
-    void write(uint8_t index, uint8_t data) { m_data[index] = data; }
+    void write(index_t index, T data) { m_data[index] = data; }
 
-    constexpr T read(uint8_t index) const { return m_data[index]; }
+    constexpr T read(index_t index) const { return m_data[index]; }
 
     constexpr T* get() { return m_data; }
 
     constexpr const T* get() const { return m_data; }
 
-    [[nodiscard]] consteval uint8_t size() const { return Size; }
+    [[nodiscard]] consteval index_t size() const { return Size; }
 
-    constexpr T operator[](uint8_t index) const { return read(index); }
+    constexpr T operator[](index_t index) const { return read(index); }
 
 private:
     T m_data[Size];
