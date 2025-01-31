@@ -31,6 +31,39 @@ static consteval uint8_t clock_source_to_bits(TimerClockSource source) {
     }
 }
 
+enum class TimeUnitType {
+    MS,
+    US,
+};
+
+template <TimeUnitType Unit, uint32_t Value> struct TimeUnit {
+    static constexpr TimeUnitType unit = Unit;
+    static constexpr uint32_t value    = Value;
+
+    static consteval uint64_t per_second() {
+        switch (unit) {
+        case TimeUnitType::MS:
+            return 1'000 / value;
+        case TimeUnitType::US:
+            return 1'000'000 / value;
+        }
+    }
+};
+
+template <uint32_t Ms> using MsUnit = TimeUnit<TimeUnitType::MS, Ms>;
+
+template <uint32_t Us> using UsUnit = TimeUnit<TimeUnitType::US, Us>;
+
+template <typename T>
+concept time_unit = requires {
+    T::unit;
+    T::value;
+
+    { T::unit } -> similar<TimeUnitType>;
+    { T::value } -> similar<uint32_t>;
+    { T::per_second() } -> similar<uint64_t>;
+};
+
 template <timer_info Info> struct NormalTimer {
     static constexpr uint8_t prescale_bits_mask = io::CS00::bit | io::CS01::bit | io::CS02::bit;
     using size_t                                = Info::size_t;
@@ -40,11 +73,14 @@ template <timer_info Info> struct NormalTimer {
         static constexpr uint32_t value = 1000 / (F_CPU / (static_cast<uint32_t>(Source) * Info::MAX));
     };
 
-    template <TimerClockSource Source, size_t Ms = CalcMaxMs<Source>::value> static void start() {
+    template <TimerClockSource Source, time_unit Unit = MsUnit<CalcMaxMs<Source>::value>> static void start() {
         using namespace io;
         constexpr uint8_t prescale_bits = clock_source_to_bits(Source);
-        constexpr uint32_t per_second   = 1000 / Ms;
-        constexpr uint32_t count_to     = F_CPU / (static_cast<uint32_t>(Source) * per_second);
+        constexpr uint64_t per_second   = Unit::per_second();
+        constexpr uint64_t divider      = static_cast<uint64_t>(Source) * per_second;
+        static_assert(divider < F_CPU);
+
+        constexpr uint32_t count_to = F_CPU / divider;
 
         static_assert(count_to <= MAX, "Timer is too fast");
 
@@ -52,6 +88,9 @@ template <timer_info Info> struct NormalTimer {
         clear();
 
         Info::OCRnA::write(count_to);
+
+        // clear interrupt flags
+        Info::TIFRn::write(OCF0A::bit);
 
         // 8bit timer
         if constexpr (same_as<size_t, uint8_t>) {
@@ -83,6 +122,8 @@ template <timer_info Info> struct NormalTimer {
     static void clear() { Info::TCNTn::write(0); }
 
     static size_t count() { return Info::TCNTn::read(); }
+
+    static bool match() { return (Info::TIFRn::read() & io::OCF0A::bit) != 0; }
 };
 
 }

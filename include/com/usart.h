@@ -1,8 +1,9 @@
 #ifndef COM_USART_H
 #define COM_USART_H
 
-#include "bits.h"
+#include "component/timer.h"
 #include "mcu/io.h"
+#include "mcu/Timer.h"
 #include "types/collection.h"
 #include <stdint.h>
 
@@ -12,98 +13,43 @@
 
 namespace com::usart {
 
-void init(uint16_t baud) {
+void init(uint16_t baud);
+void init_read(uint16_t baud);
+void init_write(uint16_t baud);
+
+void enable_rx_interrupt();
+
+void disable_rx_interrupt();
+void enable_tx_interrupt();
+
+void disable_tx_interrupt();
+void send(uint8_t byte);
+void read_clear();
+uint8_t read_poll();
+
+bool try_read(uint8_t& data);
+
+inline uint8_t read_unsafe() { return io::UDR0::read(); }
+
+void send(const char* msg);
+void send_hex(uint8_t number);
+
+template <mcu::timer_info TimerInfo, component::TimerClockSource Source, component::time_unit Unit>
+bool try_read_timeout(uint8_t& data) {
+    using namespace component;
     using namespace io;
 
-    const uint16_t ubbr = ((F_CPU / 16) / baud) - 1;
+    using timer_t = NormalTimer<TimerInfo>;
+    timer_t::template start<Source, Unit>();
 
-    UBRR0H::write(bits_higher(ubbr));
-    UBRR0L::write(bits_lower(ubbr));
-    UCSR0B::write<RXEN0, TXEN0>();
+    do {
+        if ((UCSR0A::read() & RXC0::bit) != 0) {
+            data = UDR0::read();
+            return true;
+        }
+    } while (!timer_t::match());
 
-    // 8-bit + 1 stop bit
-    UCSR0C::write<UCSZ01, UCSZ00>();
-}
-
-void init_read(uint16_t baud) {
-    using namespace io;
-
-    const uint16_t ubbr = ((F_CPU / 16) / baud) - 1;
-
-    UBRR0H::write(bits_higher(ubbr));
-    UBRR0L::write(bits_lower(ubbr));
-    UCSR0B::write<RXEN0>();
-
-    // 8-bit + 1 stop bit
-    UCSR0C::write<UCSZ01, UCSZ00>();
-}
-
-void init_write(uint16_t baud) {
-    using namespace io;
-
-    const uint16_t ubbr = ((F_CPU / 16) / baud) - 1;
-
-    UBRR0H::write(bits_higher(ubbr));
-    UBRR0L::write(bits_lower(ubbr));
-    UCSR0B::write<TXEN0>();
-
-    // 8-bit + 1 stop bit
-    UCSR0C::write<UCSZ01, UCSZ00>();
-}
-
-void send(uint8_t byte) {
-    using namespace io;
-
-    while ((UCSR0A::read() & UDRE0::bit) == 0) { }
-
-    UDR0::write(byte);
-}
-
-uint8_t read_poll() {
-    using namespace io;
-    while ((UCSR0A::read() & RXC0::bit) == 0) { }
-
-    return UDR0::read();
-}
-
-template <uint8_t Size> uint8_t read_buffer(types::array<uint8_t, Size>& buffer) {
-    using namespace io;
-    uint8_t read = 0;
-    while ((UCSR0A::read() & RXC0::bit) != 0) {
-        buffer.write(read, UDR0::read());
-        read += 1;
-    }
-
-    return read;
-}
-
-void send(const char* msg) {
-    while (*msg != '\0') {
-        send(*msg);
-        ++msg;
-    }
-}
-
-void send_hex(uint8_t number) {
-    uint8_t top    = (number >> 4) & 0xF;
-    uint8_t bottom = number & 0xF;
-
-    usart::send("0x");
-
-    if (top >= 10) {
-        top = (top - 10) + 'A';
-    } else {
-        top += '0';
-    }
-
-    if (bottom >= 10) {
-        bottom = (bottom - 10) + 'A';
-    } else {
-        bottom += '0';
-    }
-
-    usart::send(top);
-    usart::send(bottom);
+    return false;
 }
 
 }
