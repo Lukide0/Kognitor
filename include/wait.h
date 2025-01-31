@@ -4,6 +4,7 @@
 #include "bits.h"
 #include "mcu/Pin.h"
 #include "mcu/PinBit.h"
+#include <stdint.h>
 
 template <mcu::is_pin Pin, mcu::is_pinbit PinBit> inline void wait_until_on() {
     while ((Pin::read() & bit(PinBit::pos)) == 0) { }

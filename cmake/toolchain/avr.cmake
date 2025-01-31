@@ -19,7 +19,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
 # ------------------------------------------------------------------------------
-macro(add_avr_executable target_name avr_mcu f_cpu baud)
+macro(add_avr_executable target_name avr_mcu f_cpu)
     set(elf_file ${target_name}-${avr_mcu}.elf)
     set(map_file ${target_name}-${avr_mcu}.map)
     set(hex_file ${target_name}-${avr_mcu}.hex)
@@ -28,7 +28,7 @@ macro(add_avr_executable target_name avr_mcu f_cpu baud)
 
     add_executable(${target_name} ${ARGN})
 
-    target_compile_definitions(${target_name} PRIVATE F_CPU=${f_cpu} BAUD=${baud})
+    target_compile_definitions(${target_name} PRIVATE F_CPU=${f_cpu})
 
     target_compile_options(${target_name} PRIVATE
         -mmcu=${avr_mcu}

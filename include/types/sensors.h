@@ -122,10 +122,12 @@ public:
         return tuple_get<I>(m_data).read(m_cache_index);
     }
 
+    void usart_send_all(uint8_t i) const { usart_send_impl<0, true>(i); }
+
     void measure_all() {
         m_cache_old_index = m_cache_index;
         m_cache_index += 1;
-        m_filled = m_cache_index == (CacheSize - 1);
+        m_filled |= m_cache_index == (CacheSize - 1);
         m_cache_index %= CacheSize;
         measure_all_impl();
     }
@@ -170,11 +172,16 @@ private:
         }
     }
 
-    template <uint8_t I = 0> void usart_send_impl(uint8_t i) const {
+    template <uint8_t I = 0, bool all = false> void usart_send_impl(uint8_t i) const {
         using sensor_t = sensor_get_t<I>;
 
         if (I == i) {
-            sensor_t::usart_send(measure<I>());
+            if constexpr (all) {
+                send_all<I>();
+
+            } else {
+                sensor_t::usart_send(measure<I>());
+            }
         } else if constexpr (I + 1 < count) {
             usart_send_impl<I + 1>(i);
         }
@@ -210,6 +217,25 @@ private:
                 sensor_t::disable();
             }
         }
+    }
+
+    template <uint8_t I>
+        requires(I < count)
+    void send_all() const {
+
+        using sensor_t = sensor_get_t<I>;
+
+        uint8_t start = 0;
+        if (m_filled) {
+            start = m_cache_index + 1;
+            start %= CacheSize;
+        }
+
+        auto& data = tuple_get<I>(m_data);
+        for (; start != m_cache_index; start = (start + 1) % CacheSize) {
+            sensor_t::usart_send(data.read(start));
+        }
+        sensor_t::usart_send(data.read(start));
     }
 };
 

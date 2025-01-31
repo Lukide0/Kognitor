@@ -1,6 +1,7 @@
 #ifndef COMPONENT_SENSOR_BASICSENSOR_H
 #define COMPONENT_SENSOR_BASICSENSOR_H
 
+#include "concepts.h"
 #include "mcu/Pin.h"
 #include "mcu/PinBit.h"
 #include "mcu/Port.h"
@@ -39,7 +40,13 @@ concept basic_sensor_info_pullup = requires {
     requires T::pullup == Pullup;
 };
 
+/**
+ * @brief The basic sensor base.
+ */
 template <basic_sensor_info Info> struct BasicSensor {
+    /**
+     * @brief Enables the sensor.
+     */
     static void enable() {
         if constexpr (Info::pullup) {
             Info::port::template enable_pullup<typename Info::pinbit>();
@@ -50,6 +57,9 @@ template <basic_sensor_info Info> struct BasicSensor {
         Info::ddr::template enable_input<typename Info::pinbit>();
     }
 
+    /**
+     * @brief Reads the sensor.
+     */
     static bool read() { return (Info::pin::read() & bit(Info::pinbit::pos)) != 0; }
 };
 

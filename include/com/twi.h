@@ -58,6 +58,9 @@ concept is_twi_config = requires {
     requires is_read_write_reg<typename T::twdr>;
 };
 
+/**
+ * @brief The 2-wire interface.
+ */
 template <is_twi_config Config> struct twi {
 private:
     using PORT = typename Config::port;
@@ -98,12 +101,20 @@ public:
         DATA_RECV_NACK = 0x58,
     };
 
+    /**
+     * @brief Prepares the address for a read or write operation.
+     */
     template <bool Read> static constexpr uint8_t prepare_address(uint8_t address) {
         constexpr uint8_t OP = (Read) ? READ_OP : WRITE_OP;
 
         return (address << 1) | OP;
     }
 
+    /**
+     * @brief Initializes the TWI interface.
+     *
+     * @param freg The frequency to be used for TWI communication.
+     */
     static void init(uint16_t freq) {
         DDR::template enable_input<SDA, SCL>();
         PORT::template disable_pullup<SDA, SCL>();
@@ -115,6 +126,11 @@ public:
         TWBR::write(value);
     }
 
+    /**
+     * @brief Starts a TWI communication.
+     *
+     * @returns The status of the TWI communication.
+     */
     static Status start() {
         // send start condition
         TWCR::template write<TWINT, TWSTA, TWEN>();
@@ -125,10 +141,25 @@ public:
         return read_status();
     }
 
+    /**
+     * @brief Stops a TWI communication.
+     */
     static void stop() { TWCR::template write<TWINT, TWEN, TWSTO>(); }
 
+    /**
+     * @brief Reads the status of a TWI communication.
+     *
+     * @returns The status of the TWI communication.
+     */
     static Status read_status() { return static_cast<Status>(TWSR::read() & STATUS_MASK); }
 
+    /**
+     * @brief Prepares the TWI interface for a write operation.
+     *
+     * @param address The address of the device.
+     *
+     * @returns The status of the TWI communication.
+     */
     static Status prepare_write(uint8_t address) {
         const uint8_t value = prepare_address<false>(address);
 
@@ -142,6 +173,13 @@ public:
         return read_status();
     }
 
+    /**
+     * @brief Sends data over the TWI interface.
+     *
+     * @param data The data to be sent.
+     *
+     * @returns The status of the TWI communication.
+     */
     static Status send_data(uint8_t byte) {
         TWDR::write(byte);
         TWCR::template write<TWINT, TWEN>();

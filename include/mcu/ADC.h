@@ -8,6 +8,9 @@
 
 namespace mcu {
 
+/**
+ * @brief ADC Prescaler
+ */
 enum class ADCPrescaler {
     CLK_2   = 2,
     CLK_4   = 4,
@@ -18,6 +21,9 @@ enum class ADCPrescaler {
     CLK_128 = 128,
 };
 
+/**
+ * @brief ADC Reference
+ */
 enum class ADCReference {
     AREF,
     AVCC,
@@ -108,6 +114,9 @@ private:
     }
 
 public:
+    /**
+     * @brief Prepares the ADC to read the given pin.
+     */
     template <is_pinbit PinBit>
     static void prepare()
         requires(PinBit::template has<PinProp::ANALOG>())
@@ -116,6 +125,9 @@ public:
         ADMUX::write((ADMUX::read() & ~MUX_MASK) | mux_value);
     }
 
+    /**
+     * @brief Reads the pin.
+     */
     static uint16_t read() {
         ADCSRA::template set_bits<ADSC>();
 
@@ -127,6 +139,9 @@ public:
         return 1023 - value;
     }
 
+    /**
+     * @brief Reads the left adjusted pin.
+     */
     static uint8_t read_adjusted() {
         ADCSRA::template set_bits<ADSC>();
 
@@ -135,8 +150,18 @@ public:
         return ADCH::read();
     }
 
+    /**
+     * @brief Trigger an ADC conversion.
+     */
     static void read_int() { ADCSRA::template set_bits<ADSC>(); }
 
+    /**
+     * @brief Enables the ADC.
+     *
+     * @tparam Ref ADC reference.
+     * @tparam Prescaler ADC prescaler.
+     * @tparam LeftAdjustResult If the result should be left adjusted.
+     */
     template <
         ADCReference Ref       = ADCReference::AREF,
         ADCPrescaler Prescaler = ADCPrescaler::CLK_8,
@@ -156,10 +181,19 @@ public:
         ADCSRA::write(prescaler_value | ADEN::bit);
     }
 
+    /**
+     * @brief Disables the ADC.
+     */
     static void disable() { ADCSRA::template unset_bits<ADEN>(); }
 
+    /**
+     * @brief Enables the ADC interrupt.
+     */
     static void enable_interrupt() { ADCSRA::template set_bits<ADIE>(); }
 
+    /**
+     * @brief Disables the ADC interrupt.
+     */
     static void disable_interrupt() { ADCSRA::template unset_bits<ADIE>(); }
 };
 

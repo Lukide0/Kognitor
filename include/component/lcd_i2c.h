@@ -10,6 +10,9 @@ namespace component {
 
 using namespace com;
 
+/**
+ * @brief The LCD I2C interface.
+ */
 template <is_twi_config TWI_CONFIG, uint8_t Address, bool TwoLinesMode = true> struct Lcd {
     using TWI = twi<TWI_CONFIG>;
 
@@ -22,6 +25,11 @@ template <is_twi_config TWI_CONFIG, uint8_t Address, bool TwoLinesMode = true> s
     using LCD_DB6 = RB6;
     using LCD_DB7 = RB7;
 
+    /**
+     * @brief Initializes the LCD.
+     *
+     * @returns True if the initialization was successful, false otherwise.
+     */
     static bool init() {
         if (!try_start_twi()) {
             return false;
@@ -56,6 +64,12 @@ template <is_twi_config TWI_CONFIG, uint8_t Address, bool TwoLinesMode = true> s
         return true;
     }
 
+    /**
+     * @brief Sets the cursor position.
+     *
+     * @param x Horizontal position.
+     * @param y Vertical position.
+     */
     static void set_cursor(uint8_t x, uint8_t y) {
         if constexpr (TwoLinesMode) {
             /*
@@ -83,6 +97,11 @@ template <is_twi_config TWI_CONFIG, uint8_t Address, bool TwoLinesMode = true> s
         }
     }
 
+    /**
+     * @brief Sets the cursor position on the first line.
+     *
+     * @param x Horizontal position.
+     */
     static void set_cursor_l1(uint8_t x) {
         constexpr uint8_t max_x = (TwoLinesMode) ? 0x27 : 0x4F;
 
@@ -92,6 +111,11 @@ template <is_twi_config TWI_CONFIG, uint8_t Address, bool TwoLinesMode = true> s
         send_command(0x80 + x);
     }
 
+    /**
+     * @brief Sets the cursor position on the second line.
+     *
+     * @param x Horizontal position.
+     */
     static void set_cursor_l2(uint8_t x)
         requires(TwoLinesMode)
     {
@@ -102,8 +126,18 @@ template <is_twi_config TWI_CONFIG, uint8_t Address, bool TwoLinesMode = true> s
         send_command(0x80 + 0x40 + x);
     }
 
+    /**
+     * @brief Sends a data to the LCD.
+     *
+     * @param data The data to be sent.
+     */
     static void write(uint8_t data) { send_command<true>(data); }
 
+    /**
+     * @brief Sends a string to the LCD.
+     *
+     * @param str The string to be sent.
+     */
     static void write(const char* str) {
         for (; *str != '\0'; ++str) {
             write(*str);
@@ -111,6 +145,9 @@ template <is_twi_config TWI_CONFIG, uint8_t Address, bool TwoLinesMode = true> s
         }
     }
 
+    /**
+     * @brief Clears the LCD.
+     */
     static void clear() { send_command(0x01); }
 
 private:

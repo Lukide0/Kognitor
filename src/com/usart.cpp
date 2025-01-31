@@ -109,8 +109,6 @@ void send_hex(uint8_t number) {
     uint8_t top    = (number >> 4) & 0xF;
     uint8_t bottom = number & 0xF;
 
-    send("0x");
-
     if (top >= 10) {
         top = (top - 10) + 'A';
     } else {

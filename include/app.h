@@ -13,8 +13,18 @@
 
 extern uint32_t g_seconds;
 
+/*
+ * @brief App
+ *
+ * @tparam CacheSize The size of the cache for storing sensor data.
+ * @tparam Sensors Variadic template parameter representing the sensors used in the application.
+ *
+ */
 template <uint16_t CacheSize = 1, types::sensor... Sensors> class App {
 private:
+    /**
+     * @brief Enumeration representing various states of the application.
+     */
     enum State : uint8_t {
         NORMAL = 0x0,
 
@@ -28,7 +38,8 @@ private:
 
         LIST_SENSORS_STATE = 'l',
 
-        SENSOR_READ = 'r',
+        SENSOR_READ     = 'r',
+        SENSOR_READ_ALL = 'R',
 
         EXPORT_CONFIG = 'E',
         IMPORT_CONFIG = 'I',
@@ -43,6 +54,11 @@ private:
     static constexpr uint8_t config_size = (sensors_t::bitarray_size() * 2) + (sizeof(uint32_t) / sizeof(uint8_t));
 
 public:
+    /**
+     * @brief Starts the application with the specified baud rate.
+     *
+     * @param baudrate The baud rate for USART communication.
+     */
     void run(uint16_t baudrate);
 
 private:
@@ -54,10 +70,17 @@ private:
     State state_clear_sensor_watch();
     State state_list_sensors_state();
     State state_sensor_read();
+    State state_sensor_read_all();
     State state_export_config();
     State state_import_config();
     void try_measure();
 
+    /**
+     * @brief Reads an integer from the USART.
+     *
+     * @param out Reference to the output variable.
+     * @return true if reading was successful, false otherwise.
+     */
     static bool read_int(uint8_t& out) {
         types::array<uint8_t, 3> buff;
         if (!read_buff<buff.size()>(buff)) {
@@ -79,6 +102,13 @@ private:
         return tmp < 0xFF;
     }
 
+    /**
+     * @brief Reads data into the provided buffer with a specified size.
+     *
+     * @tparam Size The size of the buffer.
+     * @param out Reference to the buffer where the data will be stored.
+     * @return true if reading was successful, false otherwise.
+     */
     template <uint8_t Size> static bool read_buff(types::array<uint8_t, Size>& out) {
         using com::usart::try_read_timeout;
         using component::TimerClockSource;
@@ -93,6 +123,11 @@ private:
         return true;
     }
 
+    /**
+     * @brief Executes a callback function for a specific sensor.
+     *
+     * @param callback  The job to perform.
+     */
     template <typename Fn> void sensor_job(Fn callback) {
         uint8_t id;
 
@@ -151,6 +186,9 @@ template <uint16_t CacheSize, types::sensor... Sensors> inline void App<CacheSiz
         case State::SENSOR_READ:
             state = state_sensor_read();
             break;
+        case State::SENSOR_READ_ALL:
+            state = state_sensor_read_all();
+            break;
         case State::EXPORT_CONFIG:
             state = state_export_config();
             break;
@@ -185,6 +223,7 @@ IMPL_STATE(normal) {
     case State::CLEAR_SENSOR_WATCH:
     case State::LIST_SENSORS_STATE:
     case State::SENSOR_READ:
+    case State::SENSOR_READ_ALL:
     case State::IMPORT_CONFIG:
     case State::EXPORT_CONFIG:
         return static_cast<State>(byte);
@@ -263,11 +302,21 @@ IMPL_STATE(list_sensors_state) {
         com::usart::send(m_sensors.enabled(id));
     }
 
+    for (uint8_t id = 0; id < m_sensors.chunks_count(); ++id) {
+        com::usart::send(m_sensors.enabled_watch(id));
+    }
+
     return State::NORMAL;
 }
 
 IMPL_STATE(sensor_read) {
     sensor_job([this](uint8_t id) { m_sensors.usart_send(id); });
+
+    return State::NORMAL;
+}
+
+IMPL_STATE(sensor_read_all) {
+    sensor_job([this](uint8_t id) { m_sensors.usart_send_all(id); });
 
     return State::NORMAL;
 }
