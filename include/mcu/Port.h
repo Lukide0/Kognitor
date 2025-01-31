@@ -65,6 +65,26 @@ template <uint32_t Addr, is_port Port> struct DDR : RWReg<Addr, uint8_t> {
 template <typename T>
 concept is_ddr = is_read_write_reg<T> && is_part<PartType::DDR, T>;
 
+template <is_pinbit Bit, is_port Port, is_ddr DDR, is_pin Pin> struct FullPinInfo {
+    using port   = Port;
+    using ddr    = DDR;
+    using pin    = Pin;
+    using pinbit = Bit;
+};
+
+template <typename T>
+concept full_pin_info = requires {
+    typename T::port;
+    typename T::ddr;
+    typename T::pin;
+    typename T::pinbit;
+
+    requires is_port<typename T::port>;
+    requires is_ddr<typename T::ddr>;
+    requires is_pin<typename T::pin>;
+    requires is_pinbit<typename T::pinbit>;
+};
+
 }
 
 #endif
