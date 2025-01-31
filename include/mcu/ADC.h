@@ -1,6 +1,7 @@
 #ifndef MCU_ADC_H
 #define MCU_ADC_H
 
+#include "concepts.h"
 #include "mcu/PinBit.h"
 #include "mcu/Reg.h"
 #include <stdint.h>
@@ -126,6 +127,14 @@ public:
         return 1023 - value;
     }
 
+    static uint8_t read_adjusted() {
+        ADCSRA::template set_bits<ADSC>();
+
+        while ((ADCSRA::read() & ADSC::bit) != 0) { }
+
+        return ADCH::read();
+    }
+
     static void read_int() { ADCSRA::template set_bits<ADSC>(); }
 
     template <
@@ -152,6 +161,17 @@ public:
     static void enable_interrupt() { ADCSRA::template set_bits<ADIE>(); }
 
     static void disable_interrupt() { ADCSRA::template unset_bits<ADIE>(); }
+};
+
+template <typename T>
+concept adc = requires {
+    { T::template prepare<PinBit<0, PinProp::ANALOG>>() } -> same_as<void>;
+    { T::read() } -> similar<uint16_t>;
+    { T::read_int() } -> same_as<void>;
+    { T::template enable<ADCReference::AREF, ADCPrescaler::CLK_8, false>() } -> same_as<void>;
+    { T::disable() } -> same_as<void>;
+    { T::enable_interrupt() } -> same_as<void>;
+    { T::disable_interrupt() } -> same_as<void>;
 };
 
 }
