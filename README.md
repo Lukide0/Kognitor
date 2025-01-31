@@ -64,6 +64,7 @@ Communication is handled via USART.
 | Clear sensor watch | Disables the watch event for the sensor                     | `cXXX`           |                   |
 | List sensor state  | Sends the state of all sensors (enabled/disabled, watching) | `l`              | See below         |
 | Sensor read        | Reads the last measurement from the sensor                  | `rXXX`           | depends on sensor |
+| Sensor read all    | Reads all measurements from the sensor                      | `RXXX`           | depends on sensor |
 | Export config      | Exports the sensor configuration (enable, watch, interval)  | `E`              | See below         |
 | Import config      | Imports a sensor configuration                              | `I...` See Below |                   |
 
