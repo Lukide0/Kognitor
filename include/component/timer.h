@@ -71,6 +71,19 @@ concept time_unit = requires {
 };
 
 /**
+ * @brief Calculate the number of timer ticks to reach a given time.
+ */
+template <TimerClockSource Source, time_unit Unit> consteval uint32_t timer_count_to() {
+    const uint64_t per_second = Unit::per_second();
+    const uint64_t divider    = static_cast<uint64_t>(Source) * per_second;
+    static_assert(divider < F_CPU);
+
+    const uint32_t count_to = F_CPU / divider;
+
+    return count_to;
+}
+
+/**
  * @brief Normal timer (not PWM or CTC)
  */
 template <timer_info Info> class NormalTimer {
@@ -93,11 +106,7 @@ public:
     template <TimerClockSource Source, time_unit Unit = MsUnit<CalcMaxMs<Source>::value>> static void start() {
         using namespace io;
         constexpr uint8_t prescale_bits = clock_source_to_bits(Source);
-        constexpr uint64_t per_second   = Unit::per_second();
-        constexpr uint64_t divider      = static_cast<uint64_t>(Source) * per_second;
-        static_assert(divider < F_CPU);
-
-        constexpr uint32_t count_to = F_CPU / divider;
+        constexpr uint32_t count_to     = timer_count_to<Source, Unit>();
 
         static_assert(count_to <= MAX, "Timer is too fast");
 
