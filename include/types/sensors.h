@@ -82,24 +82,32 @@ public:
 
     static consteval uint8_t bitarray_size() { return bitarray_t::count; }
 
+    void init() {
+
+        m_enabled.clear_all();
+        m_watch_enabled.clear_all();
+
+        enable_all();
+    }
+
     void enable(uint8_t i) {
-        m_enabled.set(i);
         set_state<0, true>(i);
+        m_enabled.set(i);
     }
 
     void disable(uint8_t i) {
-        m_enabled.clear(i);
         set_state<0, false>(i);
+        m_enabled.clear(i);
     }
 
     void enable_all() {
-        m_enabled.set_all();
         set_state_all<0, true>();
+        m_enabled.set_all();
     }
 
     void disable_all() {
-        m_enabled.clear_all();
         set_state_all<0, false>();
+        m_enabled.clear_all();
     }
 
     void disable_all_watch() { m_watch_enabled.clear_all(); }
@@ -213,10 +221,15 @@ private:
     void set_state() {
         using sensor_t = sensor_get_t<I>;
         if constexpr (sensors_flags_has(sensor_t::flags, SensorFlags::HAS_ENABLE)) {
+            const bool state = is_enabled(I);
             if constexpr (enable) {
-                sensor_t::enable();
+                if (!state) {
+                    sensor_t::enable();
+                }
             } else {
-                sensor_t::disable();
+                if (state) {
+                    sensor_t::disable();
+                }
             }
         }
     }

@@ -149,8 +149,7 @@ template <uint16_t CacheSize, types::sensor... Sensors> inline void App<CacheSiz
     using namespace com;
     usart::init(baudrate);
 
-    m_sensors.enable_all();
-    m_sensors.disable_all_watch();
+    m_sensors.init();
 
     timer_t::start<component::TimerClockSource::CLK_1024, timer_delay>();
 
