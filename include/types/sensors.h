@@ -102,6 +102,8 @@ public:
         set_state_all<0, false>();
     }
 
+    void disable_all_watch() { m_watch_enabled.clear_all(); }
+
     [[nodiscard]] bool is_enabled_watch(uint8_t i) const { return m_watch_enabled.get(i); }
 
     void enable_watch(uint8_t i) { m_watch_enabled.set(i); }
