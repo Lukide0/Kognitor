@@ -57,16 +57,16 @@ Communication is handled via USART.
 
 | Command            | Description                                                 | Format           | Output            |
 | ------------------ | ----------------------------------------------------------- | ---------------- | ----------------- |
-| Enable sensor      | Enables the sensor and starts measuring                     | `eXXX`           |                   |
-| Disable sensor     | Disables the sensor and stops measuring                     | `dXXX`           |                   |
-| Set interval       | Sets the measurement interval for all sensors               | `sXXD`           |                   |
-| Set sensor watch   | The sensor triggers a watch event after each measurement    | `wXXX`           |                   |
-| Clear sensor watch | Disables the watch event for the sensor                     | `cXXX`           |                   |
+| Enable sensor      | Enables the sensor and starts measuring                     | `eXXX`           | `OK` or `ER`      |
+| Disable sensor     | Disables the sensor and stops measuring                     | `dXXX`           | `OK` or `ER`      |
+| Set interval       | Sets the measurement interval for all sensors               | `sXXD`           | `OK` or `ER`      |
+| Set sensor watch   | The sensor triggers a watch event after each measurement    | `wXXX`           | `OK` or `ER`      |
+| Clear sensor watch | Disables the watch event for the sensor                     | `cXXX`           | `OK` or `ER`      |
 | List sensor state  | Sends the state of all sensors (enabled/disabled, watching) | `l`              | See below         |
 | Sensor read        | Reads the last measurement from the sensor                  | `rXXX`           | depends on sensor |
 | Sensor read all    | Reads all measurements from the sensor                      | `RXXX`           | depends on sensor |
 | Export config      | Exports the sensor configuration (enable, watch, interval)  | `E`              | See below         |
-| Import config      | Imports a sensor configuration                              | `I...` See Below |                   |
+| Import config      | Imports a sensor configuration                              | `I...` See Below | `OK` or `ER`      |
 
 ### Sensor State Format
 
@@ -76,10 +76,11 @@ The `l` (list) command returns sensor states in the following format:
 2. **Second byte**: Number of chunks per sensor state
 3. **Enable state bytes**: Each bit represents a sensor (0 = disabled, 1 = enabled)
 4. **Watch state bytes**: Each bit represents whether the sensor has a watch event (0 = no, 1 = watch)
+5. `OK`
 
 ### Import/Export Configuration
 
-The `E` (export) command returns a sequence of bytes used for the `I` (import) command.
+The `E` (export) command returns a sequence of bytes used for the `I` (import) command. Both commands responds with `OK` or `ER`.
 
 #### Export/Import Format
 
@@ -87,3 +88,7 @@ The `E` (export) command returns a sequence of bytes used for the `I` (import) c
 2. Watch state (same format as `l` command)
 3. Measurement interval (4 bytes, little-endian format: lowest byte first)
 4. Checksum (sum of all bytes)
+
+### Adding New Sensors
+
+For more details, refer to the [README documentation](doc/README.md).
