@@ -28,13 +28,13 @@ struct JoystickSensor : SensorBase<JoystickData, SensorFlags::HAS_ENABLE | Senso
     // Shortcut to base
     using Base = SensorBase<JoystickData, SensorFlags::HAS_ENABLE | SensorFlags::HAS_WATCH>;
 
-    static data_t measure() {
+    static optional_data_t measure() {
         sensor::prepare_for_read();
 
         JoystickData data;
         data.x = sensor::read_x();
         data.y = sensor::read_y();
-        return data;
+        return optional_data_t::some(data);
     }
 
     // This function is called when the sensor is enabled

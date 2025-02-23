@@ -6,6 +6,7 @@
 #include "types/bitarray.h"
 #include "types/collection.h"
 #include "types/conditional.h"
+#include "types/optional.h"
 #include <stdint.h>
 
 namespace types {
@@ -41,7 +42,7 @@ concept sensor = requires(T::data_t data) {
     T::flags;
 
     { T::flags } -> similar<SensorFlags>;
-    { T::measure() } -> similar<typename T::data_t>;
+    { T::measure() } -> similar<optional_t<typename T::data_t>>;
     { T::usart_send(data) } -> same_as<void>;
 
     requires !sensors_flags_has(T::flags, SensorFlags::HAS_ENABLE) || sensor_has_enable<T>;
@@ -49,7 +50,8 @@ concept sensor = requires(T::data_t data) {
 };
 
 template <typename Data, SensorFlags Flags = SensorFlags::NONE> struct SensorBase {
-    using data_t = Data;
+    using data_t          = Data;
+    using optional_data_t = optional_t<data_t>;
 
     static constexpr SensorFlags flags = Flags;
 
@@ -65,13 +67,20 @@ template <uint16_t CacheSize, sensor... Sensors>
     requires(sizeof...(Sensors) < 256)
 class SensorsCollection {
 private:
+    using index_t = conditional_t<(CacheSize < 256), uint8_t, uint16_t>;
+
     using sensors_t                = tuple<Sensors...>;
     static constexpr uint8_t count = sizeof...(Sensors);
 
     using bitarray_t     = bitarray<count, uint8_t>;
     using sensors_data_t = tuple<array<typename Sensors::data_t, CacheSize>...>;
 
-    using index_t = conditional_t<(CacheSize < 256), uint8_t, uint16_t>;
+    struct data_index_t {
+        index_t index = 0;
+        index_t size  = 0;
+    };
+
+    using sensors_data_indexes_t = array<data_index_t, count>;
 
 public:
     template <uint8_t I>
@@ -129,18 +138,20 @@ public:
     template <uint8_t I>
         requires(I < count)
     decltype(auto) measure() const {
-        return tuple_get<I>(m_data).read(m_cache_index);
+        index_t index = m_indexes.read(I).index;
+
+        if (index == 0) {
+            index = CacheSize - 1;
+        } else {
+            index = index - 1;
+        }
+
+        return tuple_get<I>(m_data).read(index);
     }
 
     void usart_send_all(uint8_t i) const { usart_send_impl<0, true>(i); }
 
-    void measure_all() {
-        m_cache_old_index = m_cache_index;
-        m_cache_index += 1;
-        m_filled |= m_cache_index == (CacheSize - 1);
-        m_cache_index %= CacheSize;
-        measure_all_impl();
-    }
+    void measure_all() { measure_all_impl(); }
 
     void force_write_enable(uint8_t chunk_index, uint8_t value) { m_enabled.force_write(chunk_index, value); }
 
@@ -148,33 +159,38 @@ public:
 
     [[nodiscard]] consteval uint8_t size() const { return count; }
 
-    [[nodiscard]] bool filled() const { return m_filled; }
-
 private:
     bitarray_t m_enabled;
     bitarray_t m_watch_enabled;
     sensors_data_t m_data;
-    index_t m_cache_index = CacheSize - 1;
-    index_t m_cache_old_index;
-    bool m_filled = false;
+    sensors_data_indexes_t m_indexes;
 
     template <uint8_t I = 0> void measure_all_impl() {
         if (is_enabled(I)) {
-            using sensor_t = sensor_get_t<I>;
-            auto value     = sensor_t::measure();
+            using sensor_t                         = sensor_get_t<I>;
+            typename sensor_t::optional_data_t opt = sensor_t::measure();
 
-            if constexpr (sensors_flags_has(sensor_t::flags, SensorFlags::HAS_WATCH)) {
-                if (is_enabled_watch(I)) {
-                    sensor_t::watch(value);
+            if (opt.has_value()) {
+                auto value = opt.value();
+
+                if constexpr (sensors_flags_has(sensor_t::flags, SensorFlags::HAS_WATCH)) {
+                    if (is_enabled_watch(I)) {
+                        sensor_t::watch(value);
+                    }
                 }
+
+                data_index_t index = m_indexes.read(I);
+
+                tuple_get<I>(m_data).write(index.index, value);
+
+                if (index.size < CacheSize) {
+                    index.size += 1;
+                }
+
+                index.index = (index.index + 1) % CacheSize;
+
+                m_indexes.write(I, index);
             }
-
-            tuple_get<I>(m_data).write(m_cache_index, value);
-        } else {
-            auto& arr = tuple_get<I>(m_data);
-            auto prev = arr.read(m_cache_old_index);
-
-            arr.write(m_cache_index, prev);
         }
 
         if constexpr (I + 1 < count) {
@@ -240,17 +256,21 @@ private:
 
         using sensor_t = sensor_get_t<I>;
 
-        uint8_t start = 0;
-        if (m_filled) {
-            start = m_cache_index + 1;
-            start %= CacheSize;
-        }
+        const data_index_t index = m_indexes.read(I);
+        auto& data               = tuple_get<I>(m_data);
 
-        auto& data = tuple_get<I>(m_data);
-        for (; start != m_cache_index; start = (start + 1) % CacheSize) {
-            sensor_t::usart_send(data.read(start));
+        if (index.size < CacheSize) {
+            for (index_t i = 0; i < index.size; ++i) {
+                sensor_t::usart_send(data.read(i));
+            }
+        } else {
+            index_t i = index.index;
+            for (index_t tmp = index.index; tmp < index.size; ++tmp) {
+                sensor_t::usart_send(data.read(i));
+
+                i = (i + 1) % CacheSize;
+            }
         }
-        sensor_t::usart_send(data.read(start));
     }
 };
 

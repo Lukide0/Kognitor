@@ -133,8 +133,23 @@ private:
 
         if (read_int(id) && id < m_sensors.size()) {
             callback(id);
+            send_ok();
+        } else {
+            send_err();
         }
     }
+
+    template <bool Ok> void send_response() {
+        if constexpr (Ok) {
+            send_ok();
+        } else {
+            send_err();
+        }
+    }
+
+    void send_err() { com::usart::send("ER"); }
+
+    void send_ok() { com::usart::send("OK"); }
 
 private:
     sensors_t m_sensors;
@@ -247,6 +262,7 @@ IMPL_STATE(disable_sensor) {
 IMPL_STATE(set_interval) {
     types::array<uint8_t, 3> buff;
     if (!read_buff<buff.size()>(buff)) {
+        send_err();
         return State::NORMAL;
     }
 
@@ -255,6 +271,7 @@ IMPL_STATE(set_interval) {
     for (uint8_t i = 0; i < buff.size() - 1; ++i) {
         const auto digit = buff[i];
         if (digit > '9' || digit < '0') {
+            send_err();
             return State::NORMAL;
         }
 
@@ -276,9 +293,11 @@ IMPL_STATE(set_interval) {
         m_delay = static_cast<uint32_t>(time) * 60 * 60;
         break;
     default:
-        break;
+        send_err();
+        return State::NORMAL;
     }
 
+    send_ok();
     return State::NORMAL;
 }
 
@@ -306,6 +325,7 @@ IMPL_STATE(list_sensors_state) {
         com::usart::send(m_sensors.enabled_watch(id));
     }
 
+    send_ok();
     return State::NORMAL;
 }
 
@@ -350,7 +370,7 @@ IMPL_STATE(export_config) {
     }
 
     com::usart::send(checksum);
-
+    send_ok();
     return State::NORMAL;
 }
 
@@ -358,6 +378,7 @@ IMPL_STATE(import_config) {
 
     types::array<uint8_t, config_size> config_buff;
     if (!read_buff<config_size>(config_buff)) {
+        send_err();
         return State::NORMAL;
     }
 
@@ -368,6 +389,7 @@ IMPL_STATE(import_config) {
     }
 
     if (sum != checksum) {
+        send_err();
         return State::NORMAL;
     }
 
@@ -383,6 +405,7 @@ IMPL_STATE(import_config) {
 
     m_delay = delay;
 
+    send_ok();
     return State::NORMAL;
 }
 
