@@ -265,7 +265,7 @@ private:
             }
         } else {
             index_t i = index.index;
-            for (index_t tmp = index.index; tmp < index.size; ++tmp) {
+            for (index_t tmp = 0; tmp < index.size; ++tmp) {
                 sensor_t::usart_send(data.read(i));
 
                 i = (i + 1) % CacheSize;
