@@ -45,6 +45,16 @@ private:
         IMPORT_CONFIG = 'I',
     };
 
+    enum class ErrorCode : uint8_t {
+        INVALID_SENSOR         = 0,
+        INVALID_INTERVAL       = 1,
+        INVALID_INTERVAL_VALUE = 2,
+        INVALID_INTERVAL_UNIT  = 3,
+        INVALID_CONFIG         = 4,
+        CONFIG_CHECKSUM_FAILED = 5,
+        UNKNOWN_CMD            = 6,
+    };
+
     using sensors_t   = types::SensorsCollection<CacheSize, Sensors...>;
     using timer_t     = component::NormalTimer<io::TIMER1>;
     using timer_delay = component::MsUnit<1000>;
@@ -99,7 +109,7 @@ private:
         }
 
         out = tmp;
-        return tmp < 0xFF;
+        return tmp <= 0xFF;
     }
 
     /**
@@ -135,19 +145,43 @@ private:
             callback(id);
             send_ok();
         } else {
-            send_err();
+            send_err<ErrorCode::INVALID_SENSOR>();
         }
     }
 
-    template <bool Ok> void send_response() {
-        if constexpr (Ok) {
-            send_ok();
-        } else {
-            send_err();
+    template <ErrorCode Code> void send_err() {
+        switch (static_cast<uint8_t>(Code)) {
+        case 0:
+            com::usart::send("E0");
+            break;
+        case 1:
+            com::usart::send("E1");
+            break;
+        case 2:
+            com::usart::send("E2");
+            break;
+        case 3:
+            com::usart::send("E3");
+            break;
+        case 4:
+            com::usart::send("E4");
+            break;
+        case 5:
+            com::usart::send("E5");
+            break;
+        case 6:
+            com::usart::send("E6");
+            break;
+        case 7:
+            com::usart::send("E7");
+            break;
+        case 8:
+            com::usart::send("E8");
+            break;
+        case 9:
+            com::usart::send("E9");
         }
     }
-
-    void send_err() { com::usart::send("ER"); }
 
     void send_ok() { com::usart::send("OK"); }
 
@@ -243,6 +277,8 @@ IMPL_STATE(normal) {
     case State::EXPORT_CONFIG:
         return static_cast<State>(byte);
     default:
+        com::usart::read_clear();
+        send_err<ErrorCode::UNKNOWN_CMD>();
         return State::NORMAL;
     }
 }
@@ -262,7 +298,7 @@ IMPL_STATE(disable_sensor) {
 IMPL_STATE(set_interval) {
     types::array<uint8_t, 3> buff;
     if (!read_buff<buff.size()>(buff)) {
-        send_err();
+        send_err<ErrorCode::INVALID_INTERVAL>();
         return State::NORMAL;
     }
 
@@ -271,7 +307,7 @@ IMPL_STATE(set_interval) {
     for (uint8_t i = 0; i < buff.size() - 1; ++i) {
         const auto digit = buff[i];
         if (digit > '9' || digit < '0') {
-            send_err();
+            send_err<ErrorCode::INVALID_INTERVAL_VALUE>();
             return State::NORMAL;
         }
 
@@ -293,7 +329,7 @@ IMPL_STATE(set_interval) {
         m_delay = static_cast<uint32_t>(time) * 60 * 60;
         break;
     default:
-        send_err();
+        send_err<ErrorCode::INVALID_INTERVAL_UNIT>();
         return State::NORMAL;
     }
 
@@ -378,7 +414,7 @@ IMPL_STATE(import_config) {
 
     types::array<uint8_t, config_size> config_buff;
     if (!read_buff<config_size>(config_buff)) {
-        send_err();
+        send_err<ErrorCode::INVALID_CONFIG>();
         return State::NORMAL;
     }
 
@@ -389,7 +425,7 @@ IMPL_STATE(import_config) {
     }
 
     if (sum != checksum) {
-        send_err();
+        send_err<ErrorCode::CONFIG_CHECKSUM_FAILED>();
         return State::NORMAL;
     }
 
