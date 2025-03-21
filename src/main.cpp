@@ -1,7 +1,9 @@
 #include "app.h"
+#include "component/sensor/dht11.h"
 #include "component/sensor/joystick.h"
 #include "mcu/ADC.h"
 #include "mcu/io.h"
+#include "mcu/Port.h"
 #include "types/sensors.h"
 #include <stdint.h>
 #include <util/delay.h>
@@ -14,14 +16,21 @@ using types::SensorBase;
 using types::SensorFlags;
 using types::SensorsCollection;
 
-using ADC = mcu::ADC<io::ADCSRA, io::ADCSRB, io::ADMUX, io::ADCL, io::ADCH, io::PRR0>;
+using ADC   = mcu::ADC<io::ADCSRA, io::ADCSRB, io::ADMUX, io::ADCL, io::ADCH, io::PRR0>;
+using TIMER = io::TIMER0;
 
-using sensor_info = JoystickInfo<io::PINC5, io::PINC4>;
-using sensor      = Joystick<ADC, sensor_info>;
+using joystick_info_t = JoystickInfo<io::PINC5, io::PINC4>;
+using joystick        = Joystick<ADC, joystick_info_t>;
+
+using temperature = dht11<mcu::FullPinInfo<io::PIND4, io::PORTD, io::DDRD, io::PIND>, TIMER>;
 
 struct JoystickData {
     uint8_t x;
     uint8_t y;
+};
+
+struct TemperatureData {
+    uint8_t temp;
 };
 
 struct JoystickSensor : SensorBase<JoystickData, SensorFlags::HAS_ENABLE | SensorFlags::HAS_WATCH> {
@@ -29,11 +38,11 @@ struct JoystickSensor : SensorBase<JoystickData, SensorFlags::HAS_ENABLE | Senso
     using Base = SensorBase<JoystickData, SensorFlags::HAS_ENABLE | SensorFlags::HAS_WATCH>;
 
     static optional_data_t measure() {
-        sensor::prepare_for_read();
+        joystick::prepare_for_read();
 
         JoystickData data;
-        data.x = sensor::read_x();
-        data.y = sensor::read_y();
+        data.x = joystick::read_x();
+        data.y = joystick::read_y();
         return optional_data_t::some(data);
     }
 
@@ -63,11 +72,41 @@ struct JoystickSensor : SensorBase<JoystickData, SensorFlags::HAS_ENABLE | Senso
     }
 };
 
-// The first argument is number of cached values for each sensor. If the sensor is disabled then the value is copied
-// from last cached value. After the whole cache is full then the oldest value is dropped.
+struct TemperatureSensor : SensorBase<TemperatureData, SensorFlags::HAS_ENABLE | SensorFlags::HAS_WATCH> {
+    // Shortcut to base
+    using Base = SensorBase<TemperatureData, SensorFlags::HAS_ENABLE | SensorFlags::HAS_WATCH>;
+
+    static optional_data_t measure() {
+        dht11_data_t data;
+        if (temperature::measure(data)) {
+            return optional_data_t::some(TemperatureData {
+                .temp = data.temperature_int,
+            });
+        }
+
+        return optional_data_t::none();
+    }
+
+    static void enable() { temperature::prepare(); }
+
+    static void disable() { }
+
+    static void usart_send(const data_t& data) { Base::usart_send(data.temp); }
+
+    static void watch(const data_t& data) {
+        if (data.temp > 25) {
+            io::PORTB::set_high<io::PINB5>();
+        } else {
+            io::PORTB::set_low<io::PINB5>();
+        }
+    }
+};
+
+// The first argument is number of cached values for each sensor. If the sensor is disabled then the value is
+// copied from last cached value. After the whole cache is full then the oldest value is dropped.
 //
 // The next arguments are sensors.
-using app_t = App<5, JoystickSensor>;
+using app_t = App<5, JoystickSensor, TemperatureSensor>;
 
 int main() {
     app_t app;
