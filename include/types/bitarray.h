@@ -1,8 +1,8 @@
 #ifndef TYPES_BITARRAY_H
 #define TYPES_BITARRAY_H
 
-#include "concepts.h"
-#include "types/traits.h"
+#include <microstd/concepts.h>
+#include <microstd/types/traits.h>
 #include <stdint.h>
 
 namespace types {
@@ -13,7 +13,7 @@ namespace types {
  * @tparam Size The size of the bit array.
  * @tparam Storage The storage type.
  */
-template <uint32_t Size, unsigned_type Storage = uint8_t> class bitarray {
+template <uint32_t Size, microstd::unsigned_type Storage = uint8_t> class bitarray {
 private:
     static constexpr uint32_t bits_per_single = sizeof(Storage) * 8;
 

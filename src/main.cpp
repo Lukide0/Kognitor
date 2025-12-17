@@ -1,32 +1,36 @@
 #include "app.h"
-#include "component/sensor/dht11.h"
-#include "component/sensor/joystick.h"
-#include "mcu/ADC.h"
-#include "mcu/io.h"
-#include "mcu/Port.h"
-#include "types/sensors.h"
+
+#include <microstd/mcu/io.h>
+#include <microstd/time/timer.h>
 #include <stdint.h>
 #include <util/delay.h>
 
+#include "component/sensor/dht11.h"
+#include "component/sensor/joystick.h"
+#include "types/sensor_pin.h"
+#include "types/sensors.h"
+
 constexpr uint16_t baudrate = 9600;
 
+using namespace microstd;
+using namespace microstd::mcu;
+
+using microstd::mcu::avr::Input;
+using ADC = io::AnalogConverter;
+
 using namespace component::sensor;
+using ::types::SensorBase;
+using ::types::SensorFlags;
+using ::types::SensorsCollection;
 
-using types::SensorBase;
-using types::SensorFlags;
-using types::SensorsCollection;
-
-using ADC   = mcu::ADC<io::ADCSRA, io::ADCSRB, io::ADMUX, io::ADCL, io::ADCH, io::PRR0>;
-using TIMER = io::TIMER0;
-
-using joystick_info_t = JoystickInfo<io::PINC5, io::PINC4>;
+using joystick_info_t = JoystickInfo<Input::ADC5, Input::ADC4>;
 using joystick        = Joystick<ADC, joystick_info_t>;
 
-using temperature = dht11<mcu::FullPinInfo<io::PIND4, io::PORTD, io::DDRD, io::PIND>, TIMER>;
+using temperature = dht11<::types::SensorPin<io::PORTD4, io::DDRD4, io::PIND4>, io::Timer0>;
 
 struct JoystickData {
-    uint8_t x;
-    uint8_t y;
+    uint16_t x;
+    uint16_t y;
 };
 
 struct TemperatureData {
@@ -38,7 +42,6 @@ struct JoystickSensor : SensorBase<JoystickData, SensorFlags::HAS_ENABLE | Senso
     using Base = SensorBase<JoystickData, SensorFlags::HAS_ENABLE | SensorFlags::HAS_WATCH>;
 
     static optional_data_t measure() {
-        joystick::prepare_for_read();
 
         JoystickData data;
         data.x = joystick::read_x();
@@ -48,8 +51,8 @@ struct JoystickSensor : SensorBase<JoystickData, SensorFlags::HAS_ENABLE | Senso
 
     // This function is called when the sensor is enabled
     static void enable() {
-        io::DDRB::enable_output<io::PINB5>();
-        io::PORTB::set_low<io::PINB5>();
+        io::DDRB5::set();
+        io::PORTB5::unset();
     }
 
     // This function is called when the sensor is disabled
@@ -63,11 +66,11 @@ struct JoystickSensor : SensorBase<JoystickData, SensorFlags::HAS_ENABLE | Senso
 
     // This function is called after the measure() only if the watch is enabled
     static void watch(const data_t& data) {
-        if (data.x > 0xE0) {
-            io::PORTB::set_high<io::PINB5>();
+        if (data.x > 512) {
+            io::PORTB5::set();
 
         } else {
-            io::PORTB::set_low<io::PINB5>();
+            io::PORTB5::unset();
         }
     }
 };
@@ -78,10 +81,13 @@ struct TemperatureSensor : SensorBase<TemperatureData, SensorFlags::HAS_ENABLE |
 
     static optional_data_t measure() {
         dht11_data_t data;
+
         if (temperature::measure(data)) {
-            return optional_data_t::some(TemperatureData {
-                .temp = data.temperature_int,
-            });
+            return optional_data_t::some(
+                TemperatureData {
+                    .temp = data.temperature_int,
+                }
+            );
         }
 
         return optional_data_t::none();
@@ -95,9 +101,9 @@ struct TemperatureSensor : SensorBase<TemperatureData, SensorFlags::HAS_ENABLE |
 
     static void watch(const data_t& data) {
         if (data.temp > 25) {
-            io::PORTB::set_high<io::PINB5>();
+            io::PORTB5::set();
         } else {
-            io::PORTB::set_low<io::PINB5>();
+            io::PORTB5::unset();
         }
     }
 };
@@ -106,9 +112,12 @@ struct TemperatureSensor : SensorBase<TemperatureData, SensorFlags::HAS_ENABLE |
 // copied from last cached value. After the whole cache is full then the oldest value is dropped.
 //
 // The next arguments are sensors.
-using app_t = App<5, JoystickSensor, TemperatureSensor>;
+using app_t = App<5, TemperatureSensor, JoystickSensor>;
 
 int main() {
+    microstd::mcu::io::DDRB5::set();
+    microstd::mcu::io::PORTB5::set();
+
     app_t app;
     app.run(baudrate);
 }

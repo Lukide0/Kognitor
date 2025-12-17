@@ -1,9 +1,9 @@
 #ifndef COM_USART_H
 #define COM_USART_H
 
-#include "component/timer.h"
-#include "mcu/io.h"
-#include "mcu/Timer.h"
+#include <microstd/mcu/io.h>
+#include <microstd/time/timer.h>
+
 #include <stdint.h>
 
 #ifndef F_CPU
@@ -83,7 +83,7 @@ bool try_read(uint8_t& data);
  *
  * @return The read byte.
  */
-inline uint8_t read_unsafe() { return io::UDR0::read(); }
+uint8_t read_unsafe();
 
 /**
  * @brief Sends a null-terminated string over USART.
@@ -109,12 +109,16 @@ void send_hex(uint8_t number);
  * @param data Reference to the variable where the read data will be stored.
  * @return true if a byte was read within the timeout, false otherwise.
  */
-template <mcu::timer_info TimerInfo, component::TimerClockSource Source, component::time_unit Unit>
+template <
+    microstd::time::avr::is_avr_timer Timer,
+    microstd::time::avr::clock_source Source,
+    microstd::time::time_unit Unit>
 bool try_read_timeout(uint8_t& data) {
-    using namespace component;
-    using namespace io;
+    using namespace microstd::time;
+    using namespace microstd::mcu::io;
 
-    using timer_t = NormalTimer<TimerInfo>;
+    using timer_t = CountTimer<Timer>;
+    timer_t::init();
     timer_t::template start<Source, Unit>();
 
     do {
@@ -122,7 +126,7 @@ bool try_read_timeout(uint8_t& data) {
             data = UDR0::read();
             return true;
         }
-    } while (!timer_t::match());
+    } while (!timer_t::flag());
 
     return false;
 }

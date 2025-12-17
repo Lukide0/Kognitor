@@ -1,12 +1,13 @@
 #ifndef APP_H
 #define APP_H
 
+#include <microstd/mcu/io.h>
+#include <microstd/time/timer.h>
+#include <microstd/time/unit.h>
+#include <microstd/types/array.h>
+#include <microstd/types/tuple.h>
+
 #include "com/usart.h"
-#include "component/timer.h"
-#include "mcu/Interrupt.h"
-#include "mcu/io.h"
-#include "mcu/Timer.h"
-#include "types/collection.h"
 #include "types/sensors.h"
 #include <stdint.h>
 #include <util/delay.h>
@@ -56,10 +57,10 @@ private:
     };
 
     using sensors_t   = types::SensorsCollection<CacheSize, Sensors...>;
-    using timer_t     = component::NormalTimer<io::TIMER1>;
-    using timer_delay = component::MsUnit<1000>;
+    using timer_t     = microstd::time::CountTimer<microstd::mcu::io::Timer1>;
+    using timer_delay = microstd::time::Milliseconds<1000>;
 
-    using usart_timer_delay = component::MsUnit<10>;
+    using usart_timer_delay = microstd::time::Milliseconds<10>;
 
     static constexpr uint8_t config_size = (sensors_t::bitarray_size() * 2) + (sizeof(uint32_t) / sizeof(uint8_t));
 
@@ -92,7 +93,7 @@ private:
      * @return true if reading was successful, false otherwise.
      */
     static bool read_int(uint8_t& out) {
-        types::array<uint8_t, 3> buff;
+        microstd::types::array_t<uint8_t, 3> buff;
         if (!read_buff<buff.size()>(buff)) {
             return false;
         }
@@ -119,13 +120,13 @@ private:
      * @param out Reference to the buffer where the data will be stored.
      * @return true if reading was successful, false otherwise.
      */
-    template <uint8_t Size> static bool read_buff(types::array<uint8_t, Size>& out) {
+    template <uint8_t Size> static bool read_buff(microstd::types::array_t<uint8_t, Size>& out) {
         using com::usart::try_read_timeout;
-        using component::TimerClockSource;
-        using io::TIMER0;
+        using namespace microstd::mcu::io;
+        using microstd::time::avr::ClockSource1024;
 
         for (uint8_t i = 0; i < Size; ++i) {
-            if (!try_read_timeout<TIMER0, TimerClockSource::CLK_1024, usart_timer_delay>(out.get()[i])) {
+            if (!try_read_timeout<Timer0, ClockSource1024, usart_timer_delay>(out[i])) {
                 return false;
             }
         }
@@ -200,11 +201,12 @@ template <uint16_t CacheSize, types::sensor... Sensors> inline void App<CacheSiz
 
     m_sensors.init();
 
-    timer_t::start<component::TimerClockSource::CLK_1024, timer_delay>();
+    timer_t::init();
+    timer_t::start<microstd::time::avr::ClockSource1024, timer_delay>();
 
     timer_t::enable_interrupt();
 
-    enable_interrupts();
+    microstd::mcu::enable_interrupts();
 
     State state = State::NORMAL;
     while (true) {
@@ -249,12 +251,12 @@ template <uint16_t CacheSize, types::sensor... Sensors> inline void App<CacheSiz
 }
 
 template <uint16_t CacheSize, types::sensor... Sensors> inline void App<CacheSize, Sensors...>::try_measure() {
-    disable_interrupts();
+    microstd::mcu::disable_interrupts();
     if (g_seconds >= m_delay) {
         m_sensors.measure_all();
         g_seconds = 0;
     }
-    enable_interrupts();
+    microstd::mcu::enable_interrupts();
 }
 
 IMPL_STATE(normal) {
@@ -296,7 +298,7 @@ IMPL_STATE(disable_sensor) {
 }
 
 IMPL_STATE(set_interval) {
-    types::array<uint8_t, 3> buff;
+    microstd::types::array_t<uint8_t, 3> buff;
     if (!read_buff<buff.size()>(buff)) {
         send_err<ErrorCode::INVALID_INTERVAL>();
         return State::NORMAL;
@@ -315,7 +317,7 @@ IMPL_STATE(set_interval) {
         time += digit - '0';
     }
 
-    switch (buff.read(buff.size() - 1)) {
+    switch (buff[buff.size() - 1]) {
     case 'S':
     case 's':
         m_delay = time;
@@ -412,13 +414,13 @@ IMPL_STATE(export_config) {
 
 IMPL_STATE(import_config) {
 
-    types::array<uint8_t, config_size> config_buff;
+    microstd::types::array_t<uint8_t, config_size> config_buff;
     if (!read_buff<config_size>(config_buff)) {
         send_err<ErrorCode::INVALID_CONFIG>();
         return State::NORMAL;
     }
 
-    const uint8_t checksum = config_buff.read(config_size - 1);
+    const uint8_t checksum = config_buff[config_size - 1];
     uint8_t sum            = 0;
     for (uint8_t i = 0; i < config_size; ++i) {
         sum += config_buff[i];

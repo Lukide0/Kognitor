@@ -16,8 +16,12 @@ option(LTO_OPTIMAZITION "Enable LTO optimization" OFF)
 set(MCU atmega328p)
 set(FCPU 16000000)
 
+set(MICROSTD_BUILD_EXAMPLES OFF)
+
 # ------------------------------------------------------------------------------
 # Target
+
+include(cmake/microstd.cmake)
 
 add_avr_executable(${PROJECT_NAME} ${MCU} ${FCPU})
 target_include_directories(${PROJECT_NAME}
@@ -33,6 +37,8 @@ string(TOUPPER "${CMAKE_BUILD_TYPE}" build_type)
 if(build_type STREQUAL "DEBUG")
     target_compile_options(${PROJECT_NAME} PRIVATE -fconcepts-diagnostics-depth=2)
 endif()
+
+target_link_libraries(${PROJECT_NAME} PRIVATE microstd)
 
 # ------------------------------------------------------------------------------
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/src")

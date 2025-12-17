@@ -1,12 +1,14 @@
 #include "com/usart.h"
 #include "bits.h"
-#include "mcu/io.h"
+
+#include <microstd/mcu/io.h>
 #include <stdint.h>
 
 namespace com::usart {
 
+using namespace microstd::mcu::io;
+
 void init(uint16_t baud) {
-    using namespace io;
 
     const uint16_t ubbr = ((F_CPU / 16) / baud) - 1;
 
@@ -19,7 +21,6 @@ void init(uint16_t baud) {
 }
 
 void init_read(uint16_t baud) {
-    using namespace io;
 
     const uint16_t ubbr = ((F_CPU / 16) / baud) - 1;
 
@@ -32,7 +33,6 @@ void init_read(uint16_t baud) {
 }
 
 void init_write(uint16_t baud) {
-    using namespace io;
 
     const uint16_t ubbr = ((F_CPU / 16) / baud) - 1;
 
@@ -44,37 +44,24 @@ void init_write(uint16_t baud) {
     UCSR0C::write<UCSZ01, UCSZ00>();
 }
 
-void enable_rx_interrupt() {
-    using namespace io;
-    UCSR0B::set_bits<RXCIE0>();
-}
+void enable_rx_interrupt() { UCSR0B::set_bits<RXCIE0>(); }
 
-void disable_rx_interrupt() {
-    using namespace io;
-    UCSR0B::unset_bits<RXCIE0>();
-}
+void disable_rx_interrupt() { UCSR0B::unset_bits<RXCIE0>(); }
 
-void enable_tx_interrupt() {
-    using namespace io;
-    UCSR0B::set_bits<TXCIE0>();
-}
+void enable_tx_interrupt() { UCSR0B::set_bits<TXCIE0>(); }
 
-void disable_tx_interrupt() {
-    using namespace io;
-    UCSR0B::unset_bits<TXCIE0>();
-}
+void disable_tx_interrupt() { UCSR0B::unset_bits<TXCIE0>(); }
 
 void send(uint8_t byte) {
-    using namespace io;
 
     while ((UCSR0A::read() & UDRE0::bit) == 0) { }
 
     UDR0::write(byte);
 }
 
-void read_clear() {
-    using namespace io;
+uint8_t read_unsafe() { return UDR0::read(); }
 
+void read_clear() {
     [[maybe_unused]] uint8_t tmp;
     while ((UCSR0A::read() & RXC0::bit) != 0) {
         tmp = UDR0::read();
@@ -82,15 +69,12 @@ void read_clear() {
 }
 
 uint8_t read_poll() {
-    using namespace io;
     while ((UCSR0A::read() & RXC0::bit) == 0) { }
 
     return UDR0::read();
 }
 
 bool try_read(uint8_t& data) {
-    using namespace io;
-
     if ((UCSR0A::read() & RXC0::bit) == 0) {
         return false;
     }

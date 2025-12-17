@@ -1,12 +1,15 @@
 #ifndef TYPES_SENSORS_H
 #define TYPES_SENSORS_H
 
+#include <microstd/concepts.h>
+#include <microstd/types/array.h>
+#include <microstd/types/conditional.h>
+#include <microstd/types/tuple.h>
+
 #include "com/usart.h"
-#include "concepts.h"
 #include "types/bitarray.h"
-#include "types/collection.h"
-#include "types/conditional.h"
 #include "types/optional.h"
+
 #include <stdint.h>
 
 namespace types {
@@ -27,13 +30,13 @@ consteval bool sensors_flags_has(SensorFlags flags, SensorFlags required) {
 
 template <typename T>
 concept sensor_has_enable = requires {
-    { T::enable() } -> same_as<void>;
-    { T::disable() } -> same_as<void>;
+    { T::enable() } -> microstd::same_as<void>;
+    { T::disable() } -> microstd::same_as<void>;
 };
 
 template <typename T>
 concept sensor_has_watch = requires(T::data_t data) {
-    { T::watch(data) } -> same_as<void>;
+    { T::watch(data) } -> microstd::same_as<void>;
 };
 
 template <typename T>
@@ -41,9 +44,9 @@ concept sensor = requires(T::data_t data) {
     typename T::data_t;
     T::flags;
 
-    { T::flags } -> similar<SensorFlags>;
-    { T::measure() } -> similar<optional_t<typename T::data_t>>;
-    { T::usart_send(data) } -> same_as<void>;
+    { T::flags } -> microstd::similar_as<SensorFlags>;
+    { T::measure() } -> microstd::similar_as<optional_t<typename T::data_t>>;
+    { T::usart_send(data) } -> microstd::same_as<void>;
 
     requires !sensors_flags_has(T::flags, SensorFlags::HAS_ENABLE) || sensor_has_enable<T>;
     requires !sensors_flags_has(T::flags, SensorFlags::HAS_WATCH) || sensor_has_watch<T>;
@@ -67,25 +70,25 @@ template <uint16_t CacheSize, sensor... Sensors>
     requires(sizeof...(Sensors) < 256)
 class SensorsCollection {
 private:
-    using index_t = conditional_t<(CacheSize < 256), uint8_t, uint16_t>;
+    using index_t = microstd::types::conditional_t<(CacheSize < 256), uint8_t, uint16_t>;
 
-    using sensors_t                = tuple<Sensors...>;
+    using sensors_t                = microstd::types::tuple<Sensors...>;
     static constexpr uint8_t count = sizeof...(Sensors);
 
     using bitarray_t     = bitarray<count, uint8_t>;
-    using sensors_data_t = tuple<array<typename Sensors::data_t, CacheSize>...>;
+    using sensors_data_t = microstd::types::tuple<microstd::types::array_t<typename Sensors::data_t, CacheSize>...>;
 
     struct data_index_t {
         index_t index = 0;
         index_t size  = 0;
     };
 
-    using sensors_data_indexes_t = array<data_index_t, count>;
+    using sensors_data_indexes_t = microstd::types::array_t<data_index_t, count>;
 
 public:
     template <uint8_t I>
         requires(I < count)
-    using sensor_get_t = tuple_element_t<I, sensors_t>;
+    using sensor_get_t = microstd::types::tuple_element_t<I, sensors_t>;
 
     [[nodiscard]] bool is_enabled(uint8_t i) const { return m_enabled.get(i); }
 
@@ -138,7 +141,7 @@ public:
     template <uint8_t I>
         requires(I < count)
     decltype(auto) measure() const {
-        index_t index = m_indexes.read(I).index;
+        index_t index = m_indexes[I].index;
 
         if (index == 0) {
             index = CacheSize - 1;
@@ -146,7 +149,7 @@ public:
             index = index - 1;
         }
 
-        return tuple_get<I>(m_data).read(index);
+        return tuple_get<I>(m_data)[index];
     }
 
     void usart_send_all(uint8_t i) const { usart_send_impl<0, true>(i); }
@@ -179,9 +182,9 @@ private:
                     }
                 }
 
-                data_index_t index = m_indexes.read(I);
+                data_index_t index = m_indexes[I];
 
-                tuple_get<I>(m_data).write(index.index, value);
+                tuple_get<I>(m_data)[index.index] = value;
 
                 if (index.size < CacheSize) {
                     index.size += 1;
@@ -189,7 +192,7 @@ private:
 
                 index.index = (index.index + 1) % CacheSize;
 
-                m_indexes.write(I, index);
+                m_indexes[I] = index;
             }
         }
 
@@ -256,17 +259,17 @@ private:
 
         using sensor_t = sensor_get_t<I>;
 
-        const data_index_t index = m_indexes.read(I);
+        const data_index_t index = m_indexes[I];
         auto& data               = tuple_get<I>(m_data);
 
         if (index.size < CacheSize) {
             for (index_t i = 0; i < index.size; ++i) {
-                sensor_t::usart_send(data.read(i));
+                sensor_t::usart_send(data[i]);
             }
         } else {
             index_t i = index.index;
             for (index_t tmp = 0; tmp < index.size; ++tmp) {
-                sensor_t::usart_send(data.read(i));
+                sensor_t::usart_send(data[i]);
 
                 i = (i + 1) % CacheSize;
             }
