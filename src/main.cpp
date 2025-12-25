@@ -112,7 +112,7 @@ struct TemperatureSensor : SensorBase<TemperatureData, SensorFlags::HAS_ENABLE |
 // copied from last cached value. After the whole cache is full then the oldest value is dropped.
 //
 // The next arguments are sensors.
-using app_t = App<5, TemperatureSensor, JoystickSensor>;
+using app_t = App<true, 5, TemperatureSensor, JoystickSensor>;
 
 int main() {
     microstd::mcu::io::DDRB5::set();

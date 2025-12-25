@@ -9,6 +9,7 @@
 
 #include "com/usart.h"
 #include "types/sensors.h"
+#include "ui.h"
 #include <stdint.h>
 #include <util/delay.h>
 
@@ -21,8 +22,10 @@ extern uint32_t g_seconds;
  * @tparam Sensors Variadic template parameter representing the sensors used in the application.
  *
  */
-template <uint16_t CacheSize = 1, types::sensor... Sensors> class App {
+template <bool EnableUI, uint16_t CacheSize = 1, types::sensor... Sensors> class App {
 private:
+    using ui_t = ui_type<EnableUI>;
+
     /**
      * @brief Enumeration representing various states of the application.
      */
@@ -189,15 +192,21 @@ private:
 private:
     sensors_t m_sensors;
     uint32_t m_delay = 5;
+    ui_t m_ui;
 };
 
-#define IMPL_STATE(NAME)                                    \
-    template <uint16_t CacheSize, types::sensor... Sensors> \
-    inline App<CacheSize, Sensors...>::State App<CacheSize, Sensors...>::state_##NAME()
+#define IMPL_STATE(NAME)                                             \
+    template <bool UI, uint16_t CacheSize, types::sensor... Sensors> \
+    inline App<UI, CacheSize, Sensors...>::State App<UI, CacheSize, Sensors...>::state_##NAME()
 
-template <uint16_t CacheSize, types::sensor... Sensors> inline void App<CacheSize, Sensors...>::run(uint16_t baudrate) {
+template <bool UI, uint16_t CacheSize, types::sensor... Sensors>
+inline void App<UI, CacheSize, Sensors...>::run(uint16_t baudrate) {
     using namespace com;
     usart::init(baudrate);
+
+    if constexpr (UI) {
+        m_ui.init();
+    }
 
     m_sensors.init();
 
@@ -211,6 +220,10 @@ template <uint16_t CacheSize, types::sensor... Sensors> inline void App<CacheSiz
     State state = State::NORMAL;
     while (true) {
         try_measure();
+
+        if constexpr (UI) {
+            m_ui.update();
+        }
 
         switch (state) {
         case State::NORMAL:
@@ -250,7 +263,8 @@ template <uint16_t CacheSize, types::sensor... Sensors> inline void App<CacheSiz
     }
 }
 
-template <uint16_t CacheSize, types::sensor... Sensors> inline void App<CacheSize, Sensors...>::try_measure() {
+template <bool UI, uint16_t CacheSize, types::sensor... Sensors>
+inline void App<UI, CacheSize, Sensors...>::try_measure() {
     microstd::mcu::disable_interrupts();
     if (g_seconds >= m_delay) {
         m_sensors.measure_all();

@@ -1,0 +1,3 @@
+[submodule "vendor/oled_display"]
+	path = vendor/oled_display
+	url = https://github.com/Lukide0/oled-display.git

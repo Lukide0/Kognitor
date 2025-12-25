@@ -31,14 +31,12 @@ macro(add_avr_executable target_name avr_mcu f_cpu)
     target_compile_definitions(${target_name} PRIVATE F_CPU=${f_cpu})
 
     target_compile_options(${target_name} PRIVATE
+
         -mmcu=${avr_mcu}
         -ffunction-sections
         -fdata-sections
-        -fno-exceptions
-        -fno-rtti
         -nostdlib
         -nolibc
-        -fno-threadsafe-statics
         -fshort-enums
 
         -Os
@@ -56,11 +54,19 @@ macro(add_avr_executable target_name avr_mcu f_cpu)
         -Wundef
         -Wfloat-equal
         -Wnull-dereference
-        -Wextra-semi
-        -Wold-style-cast
-        -Wpessimizing-move
-        -Wredundant-move
-        -Wself-move
+
+        # C++ only
+        $<$<COMPILE_LANGUAGE:CXX>:
+            -Wextra-semi
+            -Wold-style-cast
+            -Wpessimizing-move
+            -Wredundant-move
+            -Wself-move
+
+            -fno-exceptions
+            -fno-rtti
+            -fno-threadsafe-statics
+        >
     )
 
     target_link_options(${target_name} PRIVATE
