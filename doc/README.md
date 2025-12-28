@@ -9,7 +9,6 @@ This document explains how to modify the code and its structure.
 - `include`
   - `com` – Communication protocols
   - `component` – Components such as sensors, displays, etc.
-  - `mcu` – Microcontroller definitions
   - `types` – Types and traits
 - `tools`
 
@@ -25,10 +24,10 @@ In `main.cpp`, create a `struct` that inherits from `SensorBase`. The `SensorBas
 - The `disable` method is called when the sensor is disabled.
 - The `watch` method is called after every successful measurement.
 
-The `app_t` type is defined in `main.cpp` and takes at least two arguments:
-
-1. The number of values stored in the ring buffer (oldest values are replaced as new ones arrive).
-2. The sensor, followed by additional sensors.
+The `app_t` type is defined in `main.cpp` and takes at least three arguments:
+1. A boolean specifying the application type (`false` for no user interface, `true` for a UI-enabled application). If `true`, the application must be connected to an LCD display using the pin configuration defined in `lcd.h`.
+2. The number of values stored in the ring buffer (oldest values are replaced as new ones arrive).
+3. The sensor, followed by additional sensors.
 
 ### Example
 
@@ -84,5 +83,5 @@ struct JoystickSensor : SensorBase<JoystickData, SensorFlags::HAS_ENABLE | Senso
 };
 
 // Application definition.
-using app_t = App<5, JoystickSensor, SomeSensor, AnotherSensor>;
+using app_t = App<false, 5, JoystickSensor, SomeSensor, AnotherSensor>;
 ```

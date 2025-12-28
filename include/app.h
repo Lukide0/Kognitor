@@ -24,8 +24,6 @@ extern uint32_t g_seconds;
  */
 template <bool EnableUI, uint16_t CacheSize = 1, types::sensor... Sensors> class App {
 private:
-    using ui_t = ui_type<EnableUI>;
-
     /**
      * @brief Enumeration representing various states of the application.
      */
@@ -63,6 +61,8 @@ private:
     using timer_t     = microstd::time::CountTimer<microstd::mcu::io::Timer1>;
     using timer_delay = microstd::time::Milliseconds<1000>;
 
+    using ui_t = ui_type<EnableUI>;
+
     using usart_timer_delay = microstd::time::Milliseconds<10>;
 
     static constexpr uint8_t config_size = (sensors_t::bitarray_size() * 2) + (sizeof(uint32_t) / sizeof(uint8_t));
@@ -88,6 +88,39 @@ private:
     State state_export_config();
     State state_import_config();
     void try_measure();
+
+    static void set_interval_fn(void* ctx, uint32_t interval) { static_cast<App*>(ctx)->m_delay = interval; }
+
+    static bool is_enabled_fn(void* ctx, uint8_t id) { return static_cast<App*>(ctx)->m_sensors.is_enabled(id); }
+
+    static bool is_watched_fn(void* ctx, uint8_t id) { return static_cast<App*>(ctx)->m_sensors.is_enabled_watch(id); }
+
+    static void set_watch_fn(void* ctx, uint8_t id, bool enabled) {
+        if (enabled) {
+            static_cast<App*>(ctx)->m_sensors.enable_watch(id);
+        } else {
+            static_cast<App*>(ctx)->m_sensors.disable_watch(id);
+        }
+    }
+
+    static void set_enable_fn(void* ctx, uint8_t id, bool enabled) {
+        if (enabled) {
+            static_cast<App*>(ctx)->m_sensors.enable(id);
+        } else {
+            static_cast<App*>(ctx)->m_sensors.disable(id);
+        }
+    }
+
+    AppAdapter get_adapter() {
+        return AppAdapter {
+            .ctx          = this,
+            .set_interval = set_interval_fn,
+            .is_enabled   = is_enabled_fn,
+            .is_watched   = is_watched_fn,
+            .set_watch    = set_watch_fn,
+            .set_enable   = set_enable_fn,
+        };
+    }
 
     /**
      * @brief Reads an integer from the USART.
@@ -205,7 +238,7 @@ inline void App<UI, CacheSize, Sensors...>::run(uint16_t baudrate) {
     usart::init(baudrate);
 
     if constexpr (UI) {
-        m_ui.init();
+        m_ui.init(m_delay, get_adapter(), m_sensors.size());
     }
 
     m_sensors.init();

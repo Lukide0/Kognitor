@@ -19,6 +19,12 @@ A sensor monitoring application.
 - avrdude
 - avr-gcc with c++20 support
 
+## Git submodules
+
+```
+git submodule update --init --recursive
+```
+
 ## Build
 
 ```
